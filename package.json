@@ -1,0 +1,54 @@
+{
+  "name": "OpsvisionDomoDashboards-server",
+  "version": "1.0.0",
+  "description": "React, Okta Sample app to share private Domo Embedded Dashboards",
+  "scripts": {
+    "start-server-local": "TARGET_ENV=local node ./server/server.local.js",
+    "start-server-dev": "TARGET_ENV=dev node ./server/server.local.js",
+    "start-server-prod": "TARGET_ENV=prod node ./server/server.local.js"
+  },
+  "author": "Mitchell Johnson",
+  "license": "MIT",
+  "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mitchellsjohnson/opsvision-domo-dashboards.git"
+  },
+  "bugs": "https://github.com/mitchellsjohnson/opsvision-domo-dashboards/issues",
+  "homepage": "https://github.com/mitchellsjohnson/opsvision-domo-dashboards",
+  "devDependencies": {
+    "find-process": "^1.4.4",
+    "forever-monitor": "^3.0.3",
+    "globby": "^11.0.4",
+    "jasmine-reporters": "^2.4.0",
+    "nodemon": "^2.0.12",
+    "platform": "^1.3.6",
+    "protractor": "^7.0.0",
+    "typescript": "^4.4.3",
+    "wait-on": "^5.3.0"
+  },
+  "bin": {},
+  "dependencies": {
+    "@flypapertech/awsenv": "^1.3.0",
+    "@okta/jwt-verifier": "1.0.0",
+    "@okta/oidc-middleware": "^4.0.1",
+    "@vendia/serverless-express": "^4.3.2",
+    "aws-sdk": "^2.1013.0",
+    "aws-secrets-environment": "^1.0.0",
+    "axios": "^0.21.1",
+    "bootstrap": "^5.1.1",
+    "colors": "^1.4.0",
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "ejs": "3.1.6",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "jws": "^3.2.1",
+    "jwt-claims": "^1.0.1",
+    "mustache-express": "^1.3.0",
+    "n": "^7.5.0",
+    "typescript": "^4.4.3",
+    "uuid": "^3.3.2"
+  },
+  "private": true
+}

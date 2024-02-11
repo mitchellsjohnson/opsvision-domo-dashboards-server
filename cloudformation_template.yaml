@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Domo Dashboards Server CloudFormation role. This roles is assumed by CodePipeline role in Pipeline account"
+Parameters:
+  BuildArtifactBucket:
+    Description: Build artifact bucket. CodePipeline fills this automatically in
+      personal AWS environments.
+    Type: String
+    Default: arn:aws:s3:::domo-dashboards-server-infra-artifactbucket
+  CFNStackName:
+    Description: Stack name
+    Type: String
+    Default: opsvision-domo-dashboard
+Resources:
+  CloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${CFNStackName}-cloudformation-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+                - codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudFormationRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                Resource:
+                  - !Sub "arn:aws:cloudformation:us-east-1:*:stack/${CFNStackName}*"
+                  - arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:Put*
+                Resource: !Sub "${BuildArtifactBucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Ref BuildArtifactBucket
+              - Effect: Allow
+                Action:
+                  - apigateway:POST
+                  - apigateway:UpdateRestApiPolicy
+                Resource:
+                  - "arn:aws:apigateway:us-east-1::/restapis"
+              - Effect: Allow
+                Action:
+                  - apigateway:PATCH
+                  - apigateway:POST
+                  - apigateway:PUT
+                  - apigateway:GET
+                  - apigateway:DELETE
+                  - apigateway:UpdateRestApiPolicy
+                Resource:
+                  - "arn:aws:apigateway:us-east-1::/restapis/*"
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeInternetGateways
+                  - ec2:DescribeVpcEndpoints
+                  - ec2:DescribeNetworkInterfaces
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - lambda:CreateFunction
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:DeleteFunction
+                  - lambda:AddPermission
+                  - lambda:UpdateFunctionCode
+                  - lambda:ListTags
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:ListVersionsByFunction
+                  - lambda:PublishVersion
+                  - lambda:CreateAlias
+                  - lambda:DeleteAlias
+                  - lambda:RemovePermission
+                  - lambda:GetAlias
+                  - lambda:UpdateAlias
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub "arn:aws:lambda:*:${AWS::AccountId}:function:${CFNStackName}-*"
+              - Effect: Allow
+                Action:
+                  - codedeploy:CreateApplication
+                  - codedeploy:DeleteApplication
+                  - codedeploy:RegisterApplicationRevision
+                Resource: !Sub "arn:aws:codedeploy:*:${AWS::AccountId}:application:${CFNStackName}-*"
+              - Effect: Allow
+                Action:
+                  - codedeploy:CreateDeploymentGroup
+                  - codedeploy:DeleteDeploymentGroup
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentGroup
+                  - codedeploy:UpdateDeploymentGroup
+                  - codedeploy:StopDeployment
+                Resource: !Sub "arn:aws:codedeploy:*:${AWS::AccountId}:deploymentgroup:${CFNStackName}-*"
+              - Effect: Allow
+                Action:
+                  - codedeploy:GetDeploymentConfig
+                Resource: !Sub "arn:aws:codedeploy:*:${AWS::AccountId}:deploymentconfig:*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:UpdateTable       
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:UpdateContinuousBackups
+                Resource: !Sub 'arn:aws:dynamodb:*:${AWS::AccountId}:table/opsvision'
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:PutLifecycleConfiguration
+                  - s3:GetLifecycleConfiguration
+                  - s3:GetEncryptionConfiguration
+                  - s3:PutEncryptionConfiguration
+                  - s3:GetObjectAcl
+                  - s3:PutObjectAcl
+                  - s3:PutBucketTagging
+                  - s3:PutBucketVersioning
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetBucketLocation
+                Resource: !Sub "arn:aws:s3:::${CFNStackName}*"
+              - Effect: Allow
+                Action:
+                  - iam:ListPolicyVersions
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeletePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:DeletePolicyVersion
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:GetRole
+                  - iam:PassRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:policy/*"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${CFNStackName}*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:PutMetricFilter
+                  - logs:DeleteMetricFilter
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:PutMetricFilter
+                  - logs:DeleteMetricFilter
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group::log-stream:*
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:DescribeAlarms
+                Resource: !Sub "arn:aws:cloudwatch:*:${AWS::AccountId}:alarm:${CFNStackName}-*"
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutAnomalyDetector 
+                  - cloudwatch:DeleteAnomalyDetector 
+                Resource: "*" #cloudwatch anomaly detectors aren't based on resources or have arns associated with them
+              - Effect: Allow
+                Action:
+                  - iam:ListRoleTags
+                  - iam:TagRole
+                  - iam:UntagRole
+                Resource:
+                  - arn:aws:iam::*:role/*
+              - Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:GetParameters
+                  - ssm:AddTagsToResource
+                  - ssm:RemoveTagsFromResource
+                  - ssm:DeleteParameter
+                Resource:
+                  - !Sub "arn:aws:ssm:us-east-1:${AWS::AccountId}:parameter/${CFNStackName}-*"
+              - Effect: Allow
+                Action: 
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:us-east-1:${AWS::AccountId}:secret:OpsvisionDomoDashboard_Config-*"
+              - Effect: Allow
+                Action:
+                  - kms:CreateKey
+                  - kms:PutKeyPolicy
+                  - kms:EnableKeyRotation
+                  - kms:EnableKey
+                  - kms:CancelKeyDeletion
+                  - kms:TagResource
+                  - kms:UntagResource
+                  - kms:DescribeKey
+                  - kms:CreateGrant
+                  - kms:GenerateDataKey*
+                  - kms:ScheduleKeyDeletion
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'aws:RequestTag/Service':
+                      - !Sub '${CFNStackName}'
+              - Effect: Allow
+                Action:
+                  - kms:UpdateAlias
+                  - kms:DeleteAlias
+                  - kms:CreateAlias
+                Resource:
+                  - !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/${CFNStackName}-dynamoCMK'
+Outputs:
+  CloudFormationRoleArn:
+    Description: The ARN of the CloudFormation Role
+    Value: !GetAtt CloudFormationRole.Arn
+    Export:
+      Name: domo-dashboards-server-cloudformation-role-arn

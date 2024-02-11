@@ -1,0 +1,16 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 14
+  build:
+    commands:
+      - npm install
+      - aws cloudformation package --template-file template.yaml --s3-bucket ${PACKAGE_BUCKET} --output-template-file packaged-template.yaml
+      - aws cloudformation package --template-file cloudformation_template.yaml --s3-bucket ${PACKAGE_BUCKET} --output-template-file cloudformation_template.yaml
+
+artifacts:
+  files:
+    - packaged-template.yaml
+    - cloudformation_template.yaml
+    - CFTemplateConfig.json

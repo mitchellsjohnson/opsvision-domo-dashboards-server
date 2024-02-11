@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+
+Parameters: 
+  Env:
+    Description: 'The env level to which this stack is being deployed (i.e. Dev/Prod)'
+    Type: 'String'
+    Default: PersonalDev
+    AllowedValues:
+      - PersonalDev
+      - Prod
+  CFNStackName:
+    Description: Stack name
+    Type: String
+    Default: opsvision-domo-dashboard
+Conditions:
+  isProd: !Equals [ !Ref Env, Prod ]
+
+Resources:
+  ExpressApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      EndpointConfiguration:
+        Type: REGIONAL
+      BinaryMediaTypes: ['*/*']
+      MethodSettings:
+        -
+          ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingRateLimit: 100
+          ThrottlingBurstLimit: 50
+          MetricsEnabled: !If [ isProd, true, false ]
+          LoggingLevel: !If [ isProd, ERROR, "OFF" ]
+      # Why no need for auth here like we do on the others?
+  ExpressFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: ./
+      Handler: ./server/lambda.handler
+      Runtime: nodejs14.x
+      MemorySize: 512
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:aws:secretsmanager:us-east-1:${AWS::AccountId}:secret:OpsvisionDomoDashboard_Config-*"
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:BatchGetItem
+                - dynamodb:Query
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Scan
+              Resource: 
+                - !GetAtt OpsvisionTable.Arn
+                - !Sub "${OpsvisionTable.Arn}/*"
+      Events:
+        ExpressFunctionProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExpressApi
+            Path: "/{proxy+}"
+            Method: ANY
+        ExpressFunctionRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExpressApi
+            Path: "/"
+            Method: ANY
+  DynamodbSSEKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub 'Server side encryption key for ${CFNStackName} DynamoDB'
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: 'DynamodbSSE'
+        Statement:
+          - Sid: 'Root policy'
+            Effect: 'Allow'
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - 'kms:*'
+            Resource: '*'
+          - Sid: Enable Permissions for CF Role
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${CFNStackName}-cloudformation-role'
+            Action: kms:*
+            Resource: '*'
+          - Sid: 'Key actions for lambda'
+            Principal:
+              AWS: '*' #checkov:skip=CKV_AWS_33:(*) principal is used with condition
+            Effect: Allow
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:GenerateDataKey
+              - kms:GenerateDataKey*
+            Resource: '*'
+            Condition:
+              StringLike:
+                'aws:PrincipalArn':
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${CFNStackName}-ExpressFunction*'
+  DynamodbCMKAlias:
+    Type: 'AWS::KMS::Alias'
+    Properties:
+      AliasName: !Sub 'alias/${CFNStackName}-dynamoCMK'
+      TargetKeyId: !Ref DynamodbSSEKey
+  OpsvisionTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: opsvision
+      SSESpecification:
+        KMSMasterKeyId: !Ref DynamodbSSEKey
+        SSEEnabled: true
+        SSEType: 'KMS'
+      #checkov:skip=CKV_AWS_28:Checkov doesn't understand conditions. Do not forget to enable PITR in Prod.
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !If [isProd, true, false]
+      BillingMode: 'PAY_PER_REQUEST'
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: dat
+          AttributeType: S
+        - AttributeName: recordType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: sk-dat-index
+          KeySchema:
+            - AttributeName: sk
+              KeyType: HASH
+            - AttributeName: dat
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: recordType-dat-index
+          KeySchema:
+            - AttributeName: recordType
+              KeyType: HASH
+            - AttributeName: dat
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+Outputs:
+
+  ExpressFunctiondApi:
+    Description: "API Gateway endpoint URL for Prod stage for Express function"
+    Value: !Sub "https://${ExpressApi}.execute-api.${AWS::Region}.amazonaws.com/prod/"
+  ExpressFunction:
+    Description: "Express Lambda Function ARN"
+    Value: !GetAtt ExpressFunction.Arn
+  ExpressFunctionIamRole:
+    Description: "Implicit IAM Role created for Express function"
+    Value: !GetAtt ExpressFunctionRole.Arn
